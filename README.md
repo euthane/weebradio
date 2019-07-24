@@ -9,12 +9,12 @@ Supported radio stations (for now) are:
 Required dependencies are: grep curl jq sqlite3 xmllint ffmpeg
 
 ## Usage
-
+```
 weebradio [command] --source <asobi|hibiki> --url <url> --id <id> --output <path> --database <filepath>
-
+```
 Commands:
   download: download latest episode or non-premium Asobi Store episode. Only downloads the audio file.
-    For Asobi Store radio shows: This can be used --url "https://asobistore.jp/special/Detail?seq=<Sequence ID for episode>" 
+    For Asobi Store radio shows: This can be used --url ```https://asobistore.jp/special/Detail?seq=<Sequence ID for episode>```
   init: initialize database file.
   add: Pairs an id with a URL (Mainly used in Asobi radio shows)
   update: checks for new episodes and downloads them with additional information such as text and images. Adds radio show to the database if not already.
