@@ -11,7 +11,7 @@ Required dependencies are: grep curl jq sqlite3 xmllint ffmpeg
 ## Usage
 ```
 weebradio [command] --source <asobi|hibiki> --url <url> --id <id> --output <path> --database <filepath>
-```
+
 Commands:
   download: download latest episode or non-premium Asobi Store episode. Only downloads the audio file.
     For Asobi Store radio shows: This can be used --url ```https://asobistore.jp/special/Detail?seq=<Sequence ID for episode>```
@@ -22,27 +22,27 @@ Commands:
 
 
 Parameters:
-  source:
+  -s|--source:
     asobi: Asobi Store
     hibiki: Hibiki Radio
 
-  url:
+  -u|--url:
     HiBiKi Radio or Asobi Store non-premium radio show URL
 
     e.g.: 
       Hibiki Radio: https://hibiki-radio.jp/description/Roselia
       Asobi Store: https://asobistore.jp/special/List?tag_seq%5B%5D=1
 
-  id:
+  -i|--id:
     HiBiKi Radio or Asobi Store show id
     e.g.: 
       Hibiki Radio: Roselia
       Asobi Store: shinyradio
-  output:
+  -o|--output:
     Folder path to store audio (Only used in download, update and updateAll). Default value is \$PWD
-  database:
+  -d|--database:
     File path to database (only used in init, add, update and updateAll). Default value is \$output\\radioentries.db
-
+```
 ### Example
 #### HiBiKi
 ```
