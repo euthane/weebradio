@@ -13,7 +13,7 @@ episodeDetail=""
 episodeCover=""
 
 function requirements {
-  local deps="grep curl jq ffmpeg sqlite3 xmllint"
+  local deps="grep curl jq ffmpeg sqlite3 xmllint youtube-dl"
   local ng=0
 
   for dep in $deps; do
@@ -33,7 +33,7 @@ Usage:
   weebradio [command] --source <asobi|hibiki> --url <url> --id <id> --output <path> --database <filepath>
 
 Commands:
-  download: download latest episode or non-premium Asobi Store episode.
+  download: download latest episode.
     For Asobi Store radio shows: This can be used --url "https://asobistore.jp/special/Detail?seq=<Sequence ID for episode>" 
   init: initialize database file
 
@@ -158,14 +158,13 @@ function getStreamAsobi {
   local sequenceUrl="$1"
   episodeDetail="$(curl -s "$sequenceUrl")"
   local playerUrl="$(echo "$episodeDetail" \
-    | xmllint --html --xpath "string(//div[@class='wrap-movie']/iframe/@src)" - 2>/dev/null
-  )"
+    | xmllint --html --xpath "string(//div[@class='wrap-movie']/iframe/@src)" - 2>/dev/null)"
   [[ "$playerUrl" == "" ]] && {
     echo -e "${RED}Can't get playerUrl.${NC}"
     exit 1
   }
-  streamURL="$(curl -s "https:${playerUrl}" | xmllint --html --xpath "string(//audio/source/@src)" - 2>/dev/null)"
-  episodeCover="https:$(curl -s "https:${playerUrl}" | xmllint --html --xpath "string(//audio/@poster)" - 2>/dev/null)"
+  streamURL="$(curl -s "https:${playerUrl}" | xmllint --html --xpath "string(//source/@src)" - 2>/dev/null)"
+  episodeCover="https:$(curl -s "https:${playerUrl}" | xmllint --html --xpath "string(//video/@poster)" - 2>/dev/null)"
   [[ "$streamURL" == "" ]] && {
     echo -e "${RED}Can't get streamURL.${NC}"
     exit 1
@@ -349,10 +348,17 @@ function add {
   esac
 }
 
-# download "StreamUrl(optional)"
+# download "StreamUrl(optional)" "recursion"
 function download {
   [ "$ID" = "" ] && {
     idGet
+  }
+  
+  local iter
+  [[ "$2" = "" ]] && {
+    iter=0
+  } || {
+    iter=$2
   }
 
   if [ ! -d "${OUTPUT}/${ID}" ]; then
@@ -370,7 +376,16 @@ function download {
       }
       local episodeTitle="$(echo "$episodeDetail" | jq .episode.name \
         | sed -e 's/^"//' -e 's/"$//')"
-      echo "$streamURL" | xargs -I{} ffmpeg -i {} -c:v copy -c:a copy -bsf:a aac_adtstoasc "${folderPath}/${episodeTitle}.aac"
+      echo "$streamURL" | xargs -I{} youtube-dl {} --hls-prefer-native --prefer-ffmpeg --postprocessor-args " -vn-c:a copy -bsf:a aac_adtstoasc" -o "${folderPath}/${episodeTitle}.aac"
+      if [ ! -f "${folderPath}/${episodeTitle}.aac" ]; then
+        if (( $iter > 3 )); then
+            echo -e "${RED}Download failed. Aborting...${NC}"
+            return 1
+        fi
+        echo -e "${RED}Download failed. Retrying...${NC}"
+        ((iter++))
+        download "$streamURL" "$iter"
+      fi
       downloadInfoHibiki "${folderPath}/info"
       ;;
     asobi)
@@ -378,7 +393,16 @@ function download {
         if [[ "$URL" =~ (Detail)  ]]; then
           getStreamAsobi "$URL"
           local episodeTitle="$(echo "$episodeDetail" | xmllint --html --xpath "//div[@class='wrap-main-info']/h1/text()" - 2>/dev/null)"
-          echo "$streamURL" | xargs -I{} ffmpeg -i {} -map 0:0 -c:a copy -bsf:a aac_adtstoasc "${folderPath}/${episodeTitle}.aac"
+          echo "$streamURL" | xargs -I{} youtube-dl {} --hls-prefer-native --prefer-ffmpeg --postprocessor-args "-vn -c:a copy -bsf:a aac_adtstoasc" -o "${folderPath}/${episodeTitle}.aac"
+          if [ ! -f "${folderPath}/${episodeTitle}.aac" ]; then
+            if (( $iter > 3 )); then
+              echo -e "${RED}Download failed. Aborting...${NC}"
+              return 1
+            fi
+            echo -e "${RED}Download failed. Retrying...${NC}"
+            ((iter++))
+            download "$streamURL" "$iter"
+          fi
           downloadInfoAsobi "$URL" "${folderPath}/info"
         else
           local sequenceUrls="$(parseAsobiStore "$URL" "free")"
@@ -389,7 +413,16 @@ function download {
       else
         streamURL="$1"
         local episodeTitle="$(echo "$episodeDetail" | xmllint --html --xpath "//div[@class='wrap-main-info']/h1/text()" - 2>/dev/null)"
-        echo "$streamURL" | xargs -I{} ffmpeg -i {} -map 0:0 -c:a copy -bsf:a aac_adtstoasc "${folderPath}/${episodeTitle}.aac"
+        echo "$streamURL" | xargs -I{} youtube-dl {} --hls-prefer-native --prefer-ffmpeg --postprocessor-args "-vn -c:a copy -bsf:a aac_adtstoasc" -o "${folderPath}/${episodeTitle}.aac"
+        if [ ! -f "${folderPath}/${episodeTitle}.aac" ]; then
+            if (( $iter > 3 )); then
+              echo -e "${RED}Download failed. Aborting...${NC}"
+              return 1
+            fi
+          echo -e "${RED}Download failed. Retrying...${NC}"
+          ((iter++))
+          download "$streamURL" "$iter"
+        fi
         downloadInfoAsobi "$URL" "${OUTPUT}/${ID}/info"
       fi
       ;;
